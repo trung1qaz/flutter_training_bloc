@@ -2,43 +2,53 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:sds_mobile_training_p2/data/user.dart';
-import 'cubit/home_cubit.dart';
-import 'events/login_bloc.dart';
-import 'pages/login_screen.dart';
-import 'pages/home_screen.dart';
+import 'feature/auth/auth_bloc.dart';
+import 'feature/auth/auth_event.dart';
+import 'feature/auth/auth_state.dart';
+import 'feature/auth/login_screen.dart';
+import 'feature/product/home_screen.dart';
+import 'feature/product/product_cubit.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Hive.initFlutter();
   Hive.registerAdapter(UserAdapter());
   await Hive.openBox('authBox');
-  runApp(
-    MultiBlocProvider(
-      providers: [
-        BlocProvider(create: (context) => LoginBloc()),
-        // Add other BLoCs here if needed
-      ],
-      child: MyApp(),
-    ),
-  );
+  runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      initialRoute: '/',
-      routes: {
-        '/': (context) => BlocProvider(
-          create: (context) => LoginBloc(),
-          child: LoginScreen(),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (context) => AuthBloc()..add(AuthInitialized()),
         ),
-        '/home': (context) => BlocProvider(
-          create: (context) => HomeCubit(),
-          child: HomeScreen(),
+        BlocProvider(
+          create: (context) => ProductCubit(),
         ),
-      },
+      ],
+      child: MaterialApp(
+        title: 'Flutter BLoC Demo',
+        theme: ThemeData(
+          primarySwatch: Colors.orange,
+        ),
+        home: BlocBuilder<AuthBloc, AuthState>(
+          builder: (context, state) {
+            switch (state.status) {
+              case AuthStatus.authenticated:
+              // Initialize product data when authenticated
+                context.read<ProductCubit>().fetchData();
+                return const HomeScreen();
+              case AuthStatus.unauthenticated:
+              case AuthStatus.initial:
+              default:
+                return const LoginScreen();
+            }
+          },
+        ),
+      ),
     );
   }
 }
